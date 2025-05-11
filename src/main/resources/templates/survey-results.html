@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Anket Sonuçları</title>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<h2 th:text="${survey.title}">Anket Başlığı</h2>
+<p th:text="${survey.description}">Açıklama</p>
+<p>Oluşturan: <span th:text="${survey.createdBy.email}">Kullanıcı</span></p>
+
+<h3>Sonuçlar</h3>
+<div th:if="${votes == null or votes.isEmpty()}">
+    <p>Bu ankete henüz oy kullanılmamış.</p>
+</div>
+<div th:unless="${votes == null or votes.isEmpty()}">
+    <div th:each="question : ${survey.questions}">
+        <h4 th:text="${question.text}">Soru</h4>
+        <ul>
+            <li th:each="vote : ${votes}" th:if="${vote.question.id == question.id}">
+                <span th:text="${vote.user.email} + ' oy verdi: ' + ${vote.option.text}"></span>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<a th:href="@{/surveys/{id}(id=${survey.id})}">Ankete Geri Dön</a> |
+<a th:href="@{/surveys}">Anketlere Geri Dön</a>
+</body>
+</html>

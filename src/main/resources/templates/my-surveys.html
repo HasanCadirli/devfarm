@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <title>Kendi Anketlerim</title>
+  <meta charset="UTF-8"/>
+  <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<h2>Kendi Anketlerim</h2>
+<p>Hoş geldin, <span th:text="${loggedInUser} ?: 'Misafir'">Misafir</span>!</p>
+
+<div th:text="'Toplam anket sayınız: ' + ${surveys.size()}"></div>
+<div th:text="'Puanınız: ' + ${userPoints} ?: '0'"></div> <!-- Puanı buraya ekledik -->
+
+<div th:if="${surveys == null or surveys.isEmpty()}">
+  <p>Henüz anket oluşturmadınız.</p>
+</div>
+<div th:unless="${surveys == null or surveys.isEmpty()}">
+  <h3>Anketleriniz:</h3>
+  <ul>
+    <li th:each="survey : ${surveys}">
+      <strong><a th:href="@{/surveys/{id}(id=${survey.id})}" th:text="${survey.title}">Anket Başlığı</a></strong>
+      <p th:text="${survey.description}">Açıklama</p>
+      <p>Durum: <span th:text="${survey.active} ? 'Aktif' : 'Pasif'">Durum</span></p>
+    </li>
+  </ul>
+</div>
+
+<a th:href="@{/surveys}">Tüm Anketlere Geri Dön</a> |
+<a th:href="@{/surveys/create}">Yeni Anket Oluştur</a> |
+<a th:href="@{/logout}">Çıkış Yap</a>
+</body>
+</html>

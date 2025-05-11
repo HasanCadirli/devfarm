@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Anket Oluştur</title>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<h2>Anket Oluştur</h2>
+<div th:if="${error}" style="color: red;" th:text="${error}">Hata!</div>
+<p>Hoş geldin, <span th:text="${loggedInUser} ?: 'Misafir'">Misafir</span>!</p>
+
+<form th:action="@{/surveys/create}" method="post">
+    <div>
+        <label for="title">Anket Başlığı:</label>
+        <input type="text" id="title" name="title" required/>
+    </div>
+    <div>
+        <label for="description">Açıklama:</label>
+        <textarea id="description" name="description" required></textarea>
+    </div>
+
+    <!-- Dinamik Soru Ekleme Bölümü -->
+    <div id="questions-container">
+        <h3>Sorular</h3>
+        <div class="question-group" id="question-1">
+            <label for="question-text-1">Soru 1:</label>
+            <input type="text" id="question-text-1" name="questions[0].text" required/>
+            <h4>Seçenekler</h4>
+            <div class="option-group">
+                <input type="text" name="questions[0].options[0].text" placeholder="Seçenek 1" required/>
+                <input type="text" name="questions[0].options[1].text" placeholder="Seçenek 2" required/>
+                <input type="text" name="questions[0].options[2].text" placeholder="Seçenek 3 (isteğe bağlı)" />
+            </div>
+            <button type="button" onclick="addOption(1)">Seçenek Ekle</button>
+        </div>
+    </div>
+    <button type="button" onclick="addQuestion()">Soru Ekle</button>
+    <button type="submit">Anketi Oluştur</button>
+</form>
+
+<a th:href="@{/surveys}">Geri Dön</a>
+
+<script>
+    let questionCount = 1;
+
+    function addQuestion() {
+        questionCount++;
+        const container = document.getElementById('questions-container');
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question-group';
+        questionDiv.id = `question-${questionCount}`;
+        questionDiv.innerHTML = `
+                <label for="question-text-${questionCount}">Soru ${questionCount}:</label>
+                <input type="text" id="question-text-${questionCount}" name="questions[${questionCount-1}].text" required/>
+                <h4>Seçenekler</h4>
+                <div class="option-group">
+                    <input type="text" name="questions[${questionCount-1}].options[0].text" placeholder="Seçenek 1" required/>
+                    <input type="text" name="questions[${questionCount-1}].options[1].text" placeholder="Seçenek 2" required/>
+                    <input type="text" name="questions[${questionCount-1}].options[2].text" placeholder="Seçenek 3 (isteğe bağlı)" />
+                </div>
+                <button type="button" onclick="addOption(${questionCount})">Seçenek Ekle</button>
+            `;
+        container.appendChild(questionDiv);
+    }
+
+    let optionCount = {};
+    optionCount[1] = 3; // İlk soru için 3 seçenek varsayılan
+
+    function addOption(questionIndex) {
+        const optionGroup = document.querySelector(`#question-${questionIndex} .option-group`);
+        const optionIndex = optionCount[questionIndex] || 3;
+        const newOption = document.createElement('input');
+        newOption.type = 'text';
+        newOption.name = `questions[${questionIndex-1}].options[${optionIndex}].text`;
+        newOption.placeholder = `Seçenek ${optionIndex + 1} (isteğe bağlı)`;
+        optionGroup.appendChild(newOption);
+        optionCount[questionIndex] = optionIndex + 1;
+    }
+</script>
+</body>
+</html>

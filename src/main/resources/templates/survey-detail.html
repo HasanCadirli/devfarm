@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Anket Detayı</title>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<h2 th:text="${survey.title}">Anket Başlığı</h2>
+<div th:if="${success}" style="color: green;" th:text="${success}">Başarılı!</div>
+<div th:if="${error}" style="color: red;" th:text="${error}">Hata!</div>
+<p th:text="${survey.description}">Açıklama</p>
+<p>Oluşturan: <span th:text="${survey.createdBy.email}">Kullanıcı</span></p>
+
+<!-- Sonuçları ve sonlandırma butonu, sadece anket sahibi için -->
+<div th:if="${isOwner}">
+    <a th:href="@{/surveys/{id}/results(id=${survey.id})}">Sonuçları Gör</a>
+    <div th:if="${survey.active}">
+        <form th:action="@{/surveys/{id}/end(id=${survey.id})}" method="post">
+            <button type="submit">Anketi Sonlandır</button>
+        </form>
+    </div>
+</div>
+
+<h3>Sorular</h3>
+<div th:if="${survey.questions == null or survey.questions.isEmpty()}">
+    <p>Bu ankete henüz soru eklenmemiş.</p>
+</div>
+<div th:unless="${survey.questions == null or survey.questions.isEmpty()}">
+    <form th:action="@{/surveys/{id}/vote(id=${survey.id})}" method="post">
+        <div th:each="question, stat : ${survey.questions}">
+            <h4 th:text="${question.text} ?: 'Soru metni bulunamadı'">Soru</h4>
+            <div th:each="option, optStat : ${question.options}">
+                <input type="radio" th:name="'option-' + ${question.id}" th:value="${option.id}" required/>
+                <!-- Oy sayısını sadece anket sahibi görebilir -->
+                <label th:if="${isOwner}" th:text="${option.text + ' (' + option.voteCount + ' oy)'}">Seçenek</label>
+                <label th:unless="${isOwner}" th:text="${option.text}">Seçenek</label>
+            </div>
+        </div>
+        <button type="submit" th:disabled="${!survey.active}">Oy Ver</button>
+    </form>
+</div>
+
+<a th:href="@{/surveys}">Geri Dön</a>
+</body>
+</html>

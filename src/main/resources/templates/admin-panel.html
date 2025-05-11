@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Admin Paneli</title>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<h2>Admin Paneli</h2>
+<div th:if="${success}" style="color: green;" th:text="${success}"></div>
+<div th:if="${error}" style="color: red;" th:text="${error}"></div>
+<p>Hoş geldin, <span th:text="${loggedInUser} ?: 'Misafir'">Misafir</span>!</p>
+
+<!-- Anketleri listeleme ve pasif yapma -->
+<h3>Aktif Anketler</h3>
+<div th:if="${surveys == null or surveys.isEmpty()}">
+    <p>Aktif anket bulunmamaktadır.</p>
+</div>
+<div th:unless="${surveys == null or surveys.isEmpty()}">
+    <table border="1">
+        <thead>
+        <tr>
+            <th>Anket Başlığı</th>
+            <th>Açıklama</th>
+            <th>Oluşturan</th>
+            <th>İşlem</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="survey : ${surveys}">
+            <td th:text="${survey.title}"></td>
+            <td th:text="${survey.description}"></td>
+            <td th:text="${survey.createdBy.email}"></td>
+            <td>
+                <form th:action="@{/admin/deactivate-survey}" method="post">
+                    <input type="hidden" name="surveyId" th:value="${survey.id}"/>
+                    <button type="submit">Pasif Yap</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+
+
+<a th:href="@{/surveys}">Anketlere Geri Dön</a> |
+<a th:href="@{/logout}">Çıkış Yap</a>
+</body>
+</html>

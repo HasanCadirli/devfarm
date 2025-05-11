@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title th:text="#{register.title}">Kayıt Ol</title>
+    <meta charset="UTF-8"/>
+    <link rel="stylesheet" href="/css/style.css"/>
+</head>
+<body>
+<h2 th:text="#{register.title}">Kayıt Ol</h2>
+<div th:if="${error}" style="color: red;" th:text="${error}"></div>
+<form th:action="@{/register}" th:object="${user}" method="post">
+    <label for="fullName" th:text="#{form.fullName}">Ad Soyad:</label>
+    <input type="text" id="fullName" th:field="*{fullName}" required/><br/><br/>
+
+    <label for="email" th:text="#{form.email}">E-posta:</label>
+    <input type="email" id="email" th:field="*{email}" required/><br/><br/>
+
+    <label for="password" th:text="#{form.password}">Şifre:</label>
+    <input type="password" id="password" th:field="*{password}" required/><br/><br/>
+
+    <button type="submit" th:text="#{form.submit.register}">Kayıt Ol</button>
+</form>
+<p th:text="#{register.login.prompt}">Zaten hesabın var mı?</p>
+<a th:href="@{/login}" th:text="#{register.login.link}">Giriş Yap</a>
+
+</body>
+</html>
