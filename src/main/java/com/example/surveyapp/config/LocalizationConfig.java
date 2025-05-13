@@ -16,14 +16,14 @@ public class LocalizationConfig implements WebMvcConfigurer {
     @Bean
     public LocaleResolver localeResolver() {
         SessionLocaleResolver slr = new SessionLocaleResolver();
-        slr.setDefaultLocale(new Locale("tr", "TR")); // Varsayılan dil Türkçe
+        slr.setDefaultLocale(new Locale("tr", "TR"));
         return slr;
     }
 
     @Bean
     public LocaleChangeInterceptor localeChangeInterceptor() {
         LocaleChangeInterceptor lci = new LocaleChangeInterceptor();
-        lci.setParamName("lang"); // URL'de ?lang=tr veya ?lang=en ile dil değiştirilecek
+        lci.setParamName("lang");
         return lci;
     }
 

@@ -57,47 +57,142 @@ public class SurveyServiceImpl implements SurveyService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Survey getSurveyById(Long id) {
         logger.info("Fetching survey with ID: {}", id);
-        return surveyRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Survey not found with ID: " + id));
+        try {
+            if (id == null) {
+                logger.error("Null ID provided to getSurveyById");
+                throw new IllegalArgumentException("Survey ID cannot be null");
+            }
+            
+            Survey survey = surveyRepository.findById(id)
+                    .orElseThrow(() -> {
+                        logger.error("Survey not found with ID: {}", id);
+                        return new RuntimeException("Survey not found with ID: " + id);
+                    });
+                    
+            // Lazy loading'i zorla
+            if (survey.getCreatedBy() != null) {
+                survey.getCreatedBy().getEmail(); // Initialize User proxy
+            }
+            
+            if (survey.getQuestions() != null) {
+                for (Question question : survey.getQuestions()) {
+                    if (question != null && question.getOptions() != null) {
+                        question.getOptions().size(); // Initialize options
+                    }
+                }
+            }
+            
+            return survey;
+        } catch (Exception e) {
+            logger.error("Error retrieving survey with ID {}: {}", id, e.getMessage(), e);
+            throw new RuntimeException("Error retrieving survey: " + e.getMessage(), e);
+        }
     }
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     @Override
     public void vote(Long questionId, Long optionId, User user) {
-        logger.info("Voting for question ID: {} with option ID: {} by user: {}", questionId, optionId, user.getEmail());
+        logger.info("Voting for question ID: {} with option ID: {} by user: {}", questionId, optionId, user != null ? user.getEmail() : "null");
 
-        Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> new RuntimeException("Question not found with ID: " + questionId));
-        if (voteRepository.existsByUserAndQuestion(user, question)) {
-            logger.warn("User {} has already voted for question ID: {}", user.getEmail(), questionId);
-            throw new RuntimeException("Bu soruya zaten oy verdiniz!");
+        try {
+            // Parametre kontrolü
+            if (questionId == null) {
+                logger.error("Question ID is null");
+                throw new IllegalArgumentException("Question ID cannot be null");
+            }
+            
+            if (optionId == null) {
+                logger.error("Option ID is null");
+                throw new IllegalArgumentException("Option ID cannot be null");
+            }
+            
+            if (user == null) {
+                logger.error("User is null");
+                throw new IllegalArgumentException("User cannot be null");
+            }
+
+            // Soru ve oylamayı kontrol et
+            Question question = questionRepository.findById(questionId)
+                    .orElseThrow(() -> {
+                        logger.error("Question not found with ID: {}", questionId);
+                        return new RuntimeException("Question not found with ID: " + questionId);
+                    });
+                    
+            // Sorunun anketi aktif mi kontrol et
+            if (question.getSurvey() != null && !question.getSurvey().getActive()) {
+                logger.warn("Survey is not active for question ID: {}", questionId);
+                throw new RuntimeException("Bu anket artık aktif değil.");
+            }
+            
+            // Kullanıcı daha önce oy vermiş mi kontrol et
+            if (voteRepository.existsByUserAndQuestion(user, question)) {
+                logger.warn("User {} has already voted for question ID: {}", user.getEmail(), questionId);
+                throw new RuntimeException("Bu soruya zaten oy verdiniz!");
+            }
+
+            // Seçenek var mı kontrol et
+            Option option = optionRepository.findById(optionId)
+                    .orElseThrow(() -> {
+                        logger.error("Option not found with ID: {}", optionId);
+                        return new RuntimeException("Option not found with ID: " + optionId);
+                    });
+                    
+            // Seçeneğin soruya ait olup olmadığını kontrol et
+            if (option.getQuestion() == null || !option.getQuestion().getId().equals(questionId)) {
+                logger.error("Option ID: {} does not belong to Question ID: {}", optionId, questionId);
+                throw new RuntimeException("Geçersiz seçenek: Bu seçenek bu soruya ait değil.");
+            }
+
+            // Oy sayısını güncelle
+            option.setVoteCount(option.getVoteCount() + 1);
+            optionRepository.save(option);
+            logger.info("Vote recorded for option ID: {}", optionId);
+
+            // Oyu kaydet
+            Vote vote = new Vote();
+            vote.setUser(user);
+            vote.setQuestion(question);
+            vote.setOption(option);
+            voteRepository.save(vote);
+            logger.info("Vote saved to Vote table for user: {}, question: {}, option: {}", user.getEmail(), questionId, optionId);
+        } catch (RuntimeException e) {
+            logger.error("Error in vote method: {}", e.getMessage(), e);
+            throw e; // Orijinal hatayı yeniden fırlat
+        } catch (Exception e) {
+            logger.error("Unexpected error in vote method: {}", e.getMessage(), e);
+            throw new RuntimeException("Oy verme işlemi sırasında beklenmeyen bir hata oluştu: " + e.getMessage(), e);
         }
-
-        Option option = optionRepository.findById(optionId)
-                .orElseThrow(() -> new RuntimeException("Option not found with ID: " + optionId));
-
-        option.setVoteCount(option.getVoteCount() + 1);
-        optionRepository.save(option);
-        logger.info("Vote recorded for option ID: {}", optionId);
-
-        Vote vote = new Vote();
-        vote.setUser(user);
-        vote.setQuestion(question);
-        vote.setOption(option);
-        voteRepository.save(vote);
-        logger.info("Vote saved to Vote table for user: {}, question: {}, option: {}", user.getEmail(), questionId, optionId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Vote> getVotesBySurvey(Long surveyId) {
         logger.info("Fetching votes for survey ID: {}", surveyId);
-        Survey survey = surveyRepository.findById(surveyId)
-                .orElseThrow(() -> new RuntimeException("Survey not found with ID: " + surveyId));
-        List<Vote> votes = voteRepository.findByQuestionSurveyId(surveyId);
-        logger.info("Found {} votes for survey ID: {}", votes.size(), surveyId);
-        return votes;
+        try {
+            Survey survey = surveyRepository.findById(surveyId)
+                    .orElseThrow(() -> new RuntimeException("Survey not found with ID: " + surveyId));
+                    
+            List<Vote> votes = voteRepository.findByQuestionSurveyId(surveyId);
+            
+            // Lazy loading nesnelerini başlat
+            for (Vote vote : votes) {
+                if (vote.getUser() != null) {
+                    vote.getUser().getEmail(); // User nesnesini başlat
+                }
+                if (vote.getOption() != null) {
+                    vote.getOption().getText(); // Option nesnesini başlat
+                }
+            }
+            
+            logger.info("Found {} votes for survey ID: {}", votes.size(), surveyId);
+            return votes;
+        } catch (Exception e) {
+            logger.error("Error retrieving votes for survey ID {}: {}", surveyId, e.getMessage(), e);
+            throw new RuntimeException("Error retrieving votes: " + e.getMessage(), e);
+        }
     }
 
     @Override
@@ -114,18 +209,24 @@ public class SurveyServiceImpl implements SurveyService {
     }
 
     @Override
+    @Transactional
     public void endSurvey(Long surveyId, User user) {
         logger.info("Ending survey ID: {} by user: {}", surveyId, user.getEmail());
-        Survey survey = surveyRepository.findById(surveyId)
-                .orElseThrow(() -> new RuntimeException("Survey not found with ID: " + surveyId));
+        try {
+            Survey survey = surveyRepository.findById(surveyId)
+                    .orElseThrow(() -> new RuntimeException("Survey not found with ID: " + surveyId));
 
-        if (!survey.getCreatedBy().getEmail().equals(user.getEmail()) && !"admin".equals(user.getRole())) {
-            logger.warn("User {} is not authorized to end survey {}", user.getEmail(), surveyId);
-            throw new RuntimeException("Bu anketi sonlandırma yetkiniz yok.");
+            if (!survey.getCreatedBy().getEmail().equals(user.getEmail()) && !"admin".equals(user.getRole())) {
+                logger.warn("User {} is not authorized to end survey {}", user.getEmail(), surveyId);
+                throw new RuntimeException("Bu anketi sonlandırma yetkiniz yok.");
+            }
+
+            survey.setActive(false);
+            surveyRepository.save(survey);
+            logger.info("Survey ID: {} ended successfully by user: {}", surveyId, user.getEmail());
+        } catch (Exception e) {
+            logger.error("Error ending survey ID {}: {}", surveyId, e.getMessage(), e);
+            throw new RuntimeException("Error ending survey: " + e.getMessage(), e);
         }
-
-        survey.setActive(false);
-        surveyRepository.save(survey);
-        logger.info("Survey ID: {} ended successfully by user: {}", surveyId, user.getEmail());
     }
 }

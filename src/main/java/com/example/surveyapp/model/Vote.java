@@ -1,6 +1,7 @@
 package com.example.surveyapp.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import java.util.Objects;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -24,6 +25,14 @@ public class Vote {
     @ManyToOne
     @JoinColumn(name = "option_id", nullable = false)
     private Option option;
+    
+    @Column(name = "timestamp")
+    private LocalDateTime timestamp;
+    
+    @PrePersist
+    protected void onCreate() {
+        timestamp = LocalDateTime.now();
+    }
 
     // Getters and Setters
     public Long getId() { return id; }
@@ -34,6 +43,8 @@ public class Vote {
     public void setQuestion(Question question) { this.question = question; }
     public Option getOption() { return option; }
     public void setOption(Option option) { this.option = option; }
+    public LocalDateTime getTimestamp() { return timestamp; }
+    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
 
     // toString, equals, hashCode
     @Override

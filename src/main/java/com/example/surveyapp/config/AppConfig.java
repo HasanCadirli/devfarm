@@ -6,9 +6,10 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.MessageSource;
 import org.springframework.context.support.ReloadableResourceBundleMessageSource;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories; // Bu satırı ekleyin
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.support.OpenEntityManagerInViewFilter;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -18,6 +19,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.spring6.templateresolver.SpringResourceTemplateResolver;
 import org.thymeleaf.spring6.view.ThymeleafViewResolver;
+import org.thymeleaf.extras.java8time.dialect.Java8TimeDialect;
+import org.thymeleaf.templatemode.TemplateMode;
 
 import javax.sql.DataSource;
 import java.beans.PropertyVetoException;
@@ -27,7 +30,7 @@ import java.util.Properties;
 @ComponentScan(basePackages = "com.example.surveyapp")
 @EnableTransactionManagement
 @EnableWebMvc
-@EnableJpaRepositories(basePackages = "com.example.surveyapp.repository") // Bu satırı ekleyin
+@EnableJpaRepositories(basePackages = "com.example.surveyapp.repository")
 public class AppConfig implements WebMvcConfigurer {
 
     @Bean
@@ -64,6 +67,15 @@ public class AppConfig implements WebMvcConfigurer {
         props.setProperty("hibernate.hbm2ddl.auto", "update");
         props.setProperty("hibernate.show_sql", "true");
         props.setProperty("hibernate.format_sql", "true");
+        
+        // Lazy loading ve session yönetimi için ek ayarlar
+        props.setProperty("hibernate.enable_lazy_load_no_trans", "true");
+        props.setProperty("hibernate.jdbc.batch_size", "50");
+        
+        // Performance & connection handling
+        props.setProperty("hibernate.order_updates", "true");
+        props.setProperty("hibernate.connection.release_mode", "after_transaction");
+        
         return props;
     }
 
@@ -79,9 +91,17 @@ public class AppConfig implements WebMvcConfigurer {
         SpringResourceTemplateResolver templateResolver = new SpringResourceTemplateResolver();
         templateResolver.setPrefix("classpath:/templates/");
         templateResolver.setSuffix(".html");
-        templateResolver.setTemplateMode("HTML");
+        templateResolver.setTemplateMode(TemplateMode.HTML);
         templateResolver.setCharacterEncoding("UTF-8");
         templateResolver.setCacheable(false);
+        
+        // Thymeleaf şablon çözümünü zorlayalım
+        templateResolver.setForceTemplateMode(true);
+        templateResolver.setCheckExistence(true);
+        
+        System.out.println("Template resolver initialized: prefix=" + templateResolver.getPrefix() 
+            + ", suffix=" + templateResolver.getSuffix());
+        
         return templateResolver;
     }
 
@@ -89,6 +109,16 @@ public class AppConfig implements WebMvcConfigurer {
     public SpringTemplateEngine templateEngine() {
         SpringTemplateEngine templateEngine = new SpringTemplateEngine();
         templateEngine.setTemplateResolver(templateResolver());
+        templateEngine.setEnableSpringELCompiler(true);
+        
+        // MessageSource'u ekliyoruz
+        templateEngine.setMessageSource(messageSource());
+        
+        // Zaman işlemleri için Java8TimeDialect ekleyelim
+        templateEngine.addDialect(new Java8TimeDialect());
+        
+        System.out.println("Template engine initialized with template resolver: " + templateResolver());
+        
         return templateEngine;
     }
 
@@ -97,7 +127,13 @@ public class AppConfig implements WebMvcConfigurer {
         ThymeleafViewResolver viewResolver = new ThymeleafViewResolver();
         viewResolver.setTemplateEngine(templateEngine());
         viewResolver.setCharacterEncoding("UTF-8");
+        viewResolver.setContentType("text/html; charset=UTF-8");
+        viewResolver.setForceContentType(true);
         viewResolver.setOrder(1);
+        viewResolver.setCache(false);
+        
+        System.out.println("ThymeleafViewResolver initialized with template engine: " + templateEngine());
+        
         return viewResolver;
     }
 
@@ -106,12 +142,20 @@ public class AppConfig implements WebMvcConfigurer {
         ReloadableResourceBundleMessageSource messageSource = new ReloadableResourceBundleMessageSource();
         messageSource.setBasename("classpath:i18n/messages");
         messageSource.setDefaultEncoding("UTF-8");
-        messageSource.setFallbackToSystemLocale(false);
+        messageSource.setCacheSeconds(3600);
+        messageSource.setFallbackToSystemLocale(true);
         return messageSource;
+    }
+
+    @Bean
+    public OpenEntityManagerInViewFilter openEntityManagerInViewFilter() {
+        return new OpenEntityManagerInViewFilter();
     }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        registry.addResourceHandler("/**")
+                .addResourceLocations("classpath:/static/");
         registry.addResourceHandler("/static/**")
                 .addResourceLocations("classpath:/static/");
     }

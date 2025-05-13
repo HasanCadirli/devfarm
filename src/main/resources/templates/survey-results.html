@@ -3,29 +3,74 @@
 <head>
     <title>Anket Sonuçları</title>
     <meta charset="UTF-8"/>
-    <link rel="stylesheet" href="/css/style.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
 <body>
-<h2 th:text="${survey.title}">Anket Başlığı</h2>
-<p th:text="${survey.description}">Açıklama</p>
-<p>Oluşturan: <span th:text="${survey.createdBy.email}">Kullanıcı</span></p>
-
-<h3>Sonuçlar</h3>
-<div th:if="${votes == null or votes.isEmpty()}">
-    <p>Bu ankete henüz oy kullanılmamış.</p>
-</div>
-<div th:unless="${votes == null or votes.isEmpty()}">
-    <div th:each="question : ${survey.questions}">
-        <h4 th:text="${question.text}">Soru</h4>
-        <ul>
-            <li th:each="vote : ${votes}" th:if="${vote.question.id == question.id}">
-                <span th:text="${vote.user.email} + ' oy verdi: ' + ${vote.option.text}"></span>
-            </li>
-        </ul>
+   
+        
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h2 th:text="${survey != null ? survey.title : 'Anket Sonuçları'}">Anket Başlığı</h2>
+            </div>
+            <div class="card-body">
+                <p th:if="${survey != null}" class="lead" th:text="${survey.description}">Açıklama</p>
+                
+                <!-- Anket verileri burada gösterilecek -->
+                <div th:if="${survey != null && survey.questions != null}" id="survey-results">
+                    <h3>Sorular</h3>
+                    <div th:each="question : ${survey.questions}" th:if="${question != null}" class="mb-3">
+                        <div class="card">
+                            <div class="card-header" th:text="${question.text}">Soru Metni</div>
+                            <div class="card-body">
+                                <ul class="list-group">
+                                    <li th:each="option : ${question.options}" th:if="${option != null}" class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span th:text="${option.text}">Seçenek</span>
+                                        <span class="badge bg-primary rounded-pill" th:text="${option.voteCount}">14</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Oy listesi -->
+                <div th:if="${votes != null && !votes.isEmpty()}" class="mt-4">
+                    <h3>Kullanılan Oylar</h3>
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Kullanıcı</th>
+                                <th>Soru</th>
+                                <th>Cevap</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="vote : ${votes}">
+                                <td th:text="${vote.user != null ? vote.user.email : 'Bilinmiyor'}">Kullanıcı</td>
+                                <td th:text="${vote.question != null ? vote.question.text : 'Bilinmiyor'}">Soru</td>
+                                <td th:text="${vote.option != null ? vote.option.text : 'Bilinmiyor'}">Cevap</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Hiç oy yoksa -->
+                <div th:if="${votes == null || votes.isEmpty()}" class="alert alert-warning">
+                    <p>Bu ankete henüz oy verilmemiş.</p>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a th:if="${survey != null}" th:href="@{/surveys/{id}(id=${survey.id})}" class="btn btn-primary">Ankete Geri Dön</a>
+                <a th:href="@{/surveys}" class="btn btn-secondary">Anket Listesine Dön</a>
+            </div>
+        </div>
     </div>
-</div>
-
-<a th:href="@{/surveys/{id}(id=${survey.id})}">Ankete Geri Dön</a> |
-<a th:href="@{/surveys}">Anketlere Geri Dön</a>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-</html>
+</html> 

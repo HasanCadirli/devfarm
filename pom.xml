@@ -43,6 +43,12 @@
       <artifactId>thymeleaf-spring6</artifactId>
       <version>${thymeleaf.version}</version>
     </dependency>
+    <!-- Thymeleaf Java 8 Time Dialect -->
+    <dependency>
+      <groupId>org.thymeleaf.extras</groupId>
+      <artifactId>thymeleaf-extras-java8time</artifactId>
+      <version>3.0.4.RELEASE</version>
+    </dependency>
 
     <!-- Hibernate -->
     <dependency>
@@ -123,6 +129,7 @@
         <configuration>
           <source>${java.version}</source>
           <target>${java.version}</target>
+          <parameters>true</parameters>
         </configuration>
       </plugin>
       <plugin>
@@ -131,6 +138,7 @@
         <version>3.4.0</version>
         <configuration>
           <failOnMissingWebXml>false</failOnMissingWebXml>
+
         </configuration>
       </plugin>
     </plugins>

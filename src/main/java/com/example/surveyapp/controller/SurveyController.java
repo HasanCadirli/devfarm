@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.HashMap;
 
 @Controller
 @RequestMapping("/surveys")
@@ -114,90 +115,127 @@ public class SurveyController {
     }
 
     @GetMapping("/{id}")
-    public String showSurveyDetails(@PathVariable Long id, Model model, HttpSession session) {
-        logger.info("GET /surveys/{} - Showing survey details", id);
-        String loggedInUser = (String) session.getAttribute("loggedInUser");
-        if (loggedInUser == null) {
-            logger.warn("No logged-in user found, redirecting to login");
-            return "redirect:/login?error=" + URLEncoder.encode("Lütfen önce giriş yapın.", StandardCharsets.UTF_8);
-        }
-        Survey survey = surveyService.getSurveyById(id);
-        if (survey == null) {
-            logger.warn("Survey not found with ID: {}", id);
-            return "redirect:/surveys?error=" + URLEncoder.encode("Anket bulunamadı.", StandardCharsets.UTF_8);
-        }
-        if (survey.getQuestions() != null) {
-            for (Question question : survey.getQuestions()) {
-                logger.debug("Question ID: {}, Text: {}", question.getId(), question.getText());
-                if (question.getOptions() != null) {
-                    for (Option option : question.getOptions()) {
-                        logger.debug("Option ID: {}, Text: {}, VoteCount: {}", option.getId(), option.getText(), option.getVoteCount());
-                    }
-                }
+    public String showSurveyDetails(@PathVariable(name = "id") Long id, Model model, HttpSession session) {
+        logger.info("GET /surveys/{} - Starting simplified survey detail view", id);
+        
+        try {
+            // Kullanıcı kontrolü
+            String loggedInUserEmail = (String) session.getAttribute("loggedInUser");
+            if (loggedInUserEmail == null) {
+                logger.warn("No logged-in user, redirecting to login");
+                return "redirect:/login?error=" + URLEncoder.encode("Lütfen giriş yapın", StandardCharsets.UTF_8);
             }
+            
+            // Temel işlemler
+            User currentUser = userService.findUserByEmail(loggedInUserEmail);
+            Survey survey = null;
+            
+            try {
+                // Anket yükleme
+                survey = surveyService.getSurveyById(id);
+                
+                if (survey == null) {
+                    logger.warn("Survey not found with ID: {}", id);
+                    return "redirect:/surveys?error=" + URLEncoder.encode("Anket bulunamadı.", StandardCharsets.UTF_8);
+                }
+                
+                logger.info("Found survey: {}, with {} questions", 
+                    survey.getTitle(), 
+                    survey.getQuestions() != null ? survey.getQuestions().size() : 0);
+            } catch (Exception e) {
+                logger.error("Error retrieving survey: {}", e.getMessage());
+                return "redirect:/surveys?error=" + URLEncoder.encode("Anket yüklenirken hata oluştu: " + e.getMessage(), StandardCharsets.UTF_8);
+            }
+            
+            // Model verilerini ekle
+            model.addAttribute("survey", survey);
+            model.addAttribute("loggedInUser", loggedInUserEmail);
+            model.addAttribute("isOwner", survey.getCreatedBy() != null && 
+                    currentUser != null && 
+                    survey.getCreatedBy().getId().equals(currentUser.getId()));
+            
+            return "survey-detail";
+        } catch (Exception e) {
+            logger.error("Unexpected error in showSurveyDetails: {}", e.getMessage(), e);
+            return "redirect:/surveys?error=" + URLEncoder.encode("Beklenmeyen bir hata oluştu.", StandardCharsets.UTF_8);
         }
-        User user = userService.findUserByEmail(loggedInUser);
-        model.addAttribute("survey", survey);
-        model.addAttribute("loggedInUser", loggedInUser);
-        model.addAttribute("userPoints", user.getPoints());
-        model.addAttribute("isOwner", survey.getCreatedBy().getEmail().equals(loggedInUser));
-        return "survey-detail";
     }
 
     @PostMapping("/{id}/vote")
-    public String voteSurvey(@PathVariable Long id, @RequestParam Map<String, String> allParams, HttpSession session) {
-        logger.info("POST /surveys/{}/vote - Voting on survey", id);
-        String loggedInUserEmail = (String) session.getAttribute("loggedInUser");
-        if (loggedInUserEmail == null) {
-            logger.warn("No logged-in user found, redirecting to login");
-            return "redirect:/login?error=" + URLEncoder.encode("Lütfen önce giriş yapın.", StandardCharsets.UTF_8);
-        }
-        User user = userService.findUserByEmail(loggedInUserEmail);
-        Survey survey = surveyService.getSurveyById(id);
-        if (survey == null) {
-            logger.warn("Survey not found with ID: {}", id);
-            return "redirect:/surveys?error=" + URLEncoder.encode("Anket bulunamadı.", StandardCharsets.UTF_8);
-        }
-
+    public String voteSurvey(@PathVariable(name = "id") Long id, @RequestParam Map<String, String> allParams, HttpSession session) {
+        logger.info("POST /surveys/{}/vote - Starting simplified vote handling", id);
+        
         try {
-            // Kullanıcının bu ankete daha önce oy verip vermediğini kontrol edelim
-            boolean hasVoted = false;
-            for (Question question : survey.getQuestions()) {
-                if (voteRepository.existsByUserAndQuestion(user, question)) {
-                    hasVoted = true;
-                    break;
-                }
+            // Kullanıcı kontrolü
+            String loggedInUserEmail = (String) session.getAttribute("loggedInUser");
+            if (loggedInUserEmail == null) {
+                logger.warn("No logged-in user, redirecting to login");
+                return "redirect:/login?error=" + URLEncoder.encode("Lütfen giriş yapın", StandardCharsets.UTF_8);
             }
-
+            
+            User user = userService.findUserByEmail(loggedInUserEmail);
+            if (user == null) {
+                logger.error("User not found: {}", loggedInUserEmail);
+                return "redirect:/login?error=" + URLEncoder.encode("Kullanıcı bilgileri bulunamadı", StandardCharsets.UTF_8);
+            }
+            
+            // Anket kontrolü 
+            Survey survey = null;
+            try {
+                survey = surveyService.getSurveyById(id);
+                if (survey == null) {
+                    logger.warn("Survey not found with ID: {}", id);
+                    return "redirect:/surveys?error=" + URLEncoder.encode("Anket bulunamadı", StandardCharsets.UTF_8);
+                }
+                
+                if (!survey.getActive()) {
+                    logger.warn("Attempted to vote on inactive survey: {}", id);
+                    return "redirect:/surveys/" + id + "?error=" + URLEncoder.encode("Bu anket artık aktif değil", StandardCharsets.UTF_8);
+                }
+            } catch (Exception e) {
+                logger.error("Error retrieving survey: {}", e.getMessage());
+                return "redirect:/surveys?error=" + URLEncoder.encode("Anket yüklenirken hata oluştu", StandardCharsets.UTF_8);
+            }
+            
+            // Oy işlemi - çok basit
+            boolean voteRegistered = false;
+            StringBuilder errors = new StringBuilder();
+            
             for (String key : allParams.keySet()) {
-                if (key.startsWith("option-")) {
-                    Long questionId = Long.parseLong(key.replace("option-", ""));
-                    Long optionId = Long.parseLong(allParams.get(key));
-                    surveyService.vote(questionId, optionId, user);
-                    logger.info("User {} voted for option {} in question {}", user.getEmail(), optionId, questionId);
+                if (key != null && key.startsWith("option-")) {
+                    try {
+                        Long questionId = Long.parseLong(key.replace("option-", ""));
+                        Long optionId = Long.parseLong(allParams.get(key));
+                        
+                        logger.info("Processing vote - Question ID: {}, Option ID: {}", questionId, optionId);
+                        surveyService.vote(questionId, optionId, user);
+                        voteRegistered = true;
+                    } catch (Exception e) {
+                        logger.error("Error processing vote: {}", e.getMessage());
+                        errors.append(e.getMessage()).append("; ");
+                    }
                 }
             }
-
-            // Eğer kullanıcı bu ankete ilk kez oy verdiyse puan ekle
-            if (!hasVoted) {
-                int pointsPerQuestion = 5;
-                int totalPointsToAdd = survey.getQuestions() != null ? survey.getQuestions().size() * pointsPerQuestion : 0;
-                if (totalPointsToAdd > 0) {
-                    userService.updateUserPoints(user, totalPointsToAdd);
-                    logger.info("User {} earned {} points for voting on survey {} with {} questions", user.getEmail(), totalPointsToAdd, id, survey.getQuestions().size());
-                    return "redirect:/surveys/" + id + "?success=" + URLEncoder.encode("Oy başarıyla kullanıldı! " + totalPointsToAdd + " puan kazandınız!", StandardCharsets.UTF_8);
-                }
+            
+            if (!voteRegistered) {
+                String errorMsg = errors.length() > 0 ? 
+                        "Oy verme sırasında hatalar oluştu: " + errors.toString() : 
+                        "Hiçbir oy kaydedilemedi";
+                logger.warn("{} for survey: {}, user: {}", errorMsg, id, user.getEmail());
+                return "redirect:/surveys/" + id + "?error=" + URLEncoder.encode(errorMsg, StandardCharsets.UTF_8);
             }
-
-            return "redirect:/surveys/" + id + "?success=" + URLEncoder.encode("Oy başarıyla kullanıldı!", StandardCharsets.UTF_8);
-        } catch (RuntimeException e) {
-            logger.error("Error during voting: {}", e.getMessage(), e);
-            return "redirect:/surveys/" + id + "?error=" + URLEncoder.encode(e.getMessage(), StandardCharsets.UTF_8);
+            
+            // Başarılı
+            logger.info("Vote successful for survey: {}, user: {}", id, user.getEmail());
+            return "redirect:/surveys/" + id + "?success=" + URLEncoder.encode("Oyunuz başarıyla kaydedildi!", StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            logger.error("Unexpected error during voting: {}", e.getMessage(), e);
+            return "redirect:/surveys/" + id + "?error=" + URLEncoder.encode("Beklenmeyen bir hata oluştu", StandardCharsets.UTF_8);
         }
     }
 
     @GetMapping("/{id}/results")
-    public String showSurveyResults(@PathVariable Long id, Model model, HttpSession session) {
+    public String showSurveyResults(@PathVariable(name = "id") Long id, Model model, HttpSession session) {
         logger.info("GET /surveys/{}/results - Showing survey results", id);
         String loggedInUserEmail = (String) session.getAttribute("loggedInUser");
         if (loggedInUserEmail == null) {
@@ -246,7 +284,7 @@ public class SurveyController {
     }
 
     @PostMapping("/{id}/end")
-    public String endSurvey(@PathVariable Long id, HttpSession session) {
+    public String endSurvey(@PathVariable(name = "id") Long id, HttpSession session) {
         logger.info("POST /surveys/{}/end - Ending survey", id);
         String loggedInUserEmail = (String) session.getAttribute("loggedInUser");
         if (loggedInUserEmail == null) {

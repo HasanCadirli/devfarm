@@ -3,7 +3,7 @@
 <head>
     <title th:text="#{dashboard.title}">Kullanıcı Paneli</title>
     <meta charset="UTF-8"/>
-    <link rel="stylesheet" href="/css/style.css"/>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
 </head>
 <body>
 <h2 th:text="#{dashboard.welcome(${user.fullName})}">Hoş Geldin!</h2>

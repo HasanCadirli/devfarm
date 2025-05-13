@@ -3,44 +3,184 @@
 <head>
     <title>Anket Detayı</title>
     <meta charset="UTF-8"/>
-    <link rel="stylesheet" href="/css/style.css"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
 </head>
 <body>
-<h2 th:text="${survey.title}">Anket Başlığı</h2>
-<div th:if="${success}" style="color: green;" th:text="${success}">Başarılı!</div>
-<div th:if="${error}" style="color: red;" th:text="${error}">Hata!</div>
-<p th:text="${survey.description}">Açıklama</p>
-<p>Oluşturan: <span th:text="${survey.createdBy.email}">Kullanıcı</span></p>
-
-<!-- Sonuçları ve sonlandırma butonu, sadece anket sahibi için -->
-<div th:if="${isOwner}">
-    <a th:href="@{/surveys/{id}/results(id=${survey.id})}">Sonuçları Gör</a>
-    <div th:if="${survey.active}">
-        <form th:action="@{/surveys/{id}/end(id=${survey.id})}" method="post">
-            <button type="submit">Anketi Sonlandır</button>
-        </form>
-    </div>
-</div>
-
-<h3>Sorular</h3>
-<div th:if="${survey.questions == null or survey.questions.isEmpty()}">
-    <p>Bu ankete henüz soru eklenmemiş.</p>
-</div>
-<div th:unless="${survey.questions == null or survey.questions.isEmpty()}">
-    <form th:action="@{/surveys/{id}/vote(id=${survey.id})}" method="post">
-        <div th:each="question, stat : ${survey.questions}">
-            <h4 th:text="${question.text} ?: 'Soru metni bulunamadı'">Soru</h4>
-            <div th:each="option, optStat : ${question.options}">
-                <input type="radio" th:name="'option-' + ${question.id}" th:value="${option.id}" required/>
-                <!-- Oy sayısını sadece anket sahibi görebilir -->
-                <label th:if="${isOwner}" th:text="${option.text + ' (' + option.voteCount + ' oy)'}">Seçenek</label>
-                <label th:unless="${isOwner}" th:text="${option.text}">Seçenek</label>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">Anket Sistemi</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/surveys}">Anketler</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/surveys/my-surveys}">Kendi Anketlerim</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/surveys/create}">Yeni Anket Oluştur</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <!-- Karanlık Mod Düğmesi -->
+                    <button id="darkModeToggle" class="btn btn-outline-light me-2">
+                        <i class="bi bi-moon-fill"></i>
+                    </button>
+                    
+                    <!-- Dil Seçimi -->
+                    <div class="dropdown me-2">
+                        <button class="btn btn-outline-light dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span th:text="${#locale.language == 'tr' ? 'TR' : 'EN'}">Dil</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
+                            <li><a class="dropdown-item" th:href="@{/surveys/{id}(id=${survey.id},lang=tr)}">Türkçe</a></li>
+                            <li><a class="dropdown-item" th:href="@{/surveys/{id}(id=${survey.id},lang=en)}">English</a></li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Kullanıcı Bilgisi -->
+                    <span class="navbar-text text-white ms-2" th:if="${loggedInUser != null}">
+                        <i class="bi bi-person-circle"></i> <span th:text="${loggedInUser}">Kullanıcı</span>
+                    </span>
+                </div>
             </div>
         </div>
-        <button type="submit" th:disabled="${!survey.active}">Oy Ver</button>
-    </form>
-</div>
+    </nav>
 
-<a th:href="@{/surveys}">Geri Dön</a>
+    <div class="container mt-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h2>Anket Detayları</h2>
+            </div>
+            <div class="card-body">
+                <!-- Hata ve Başarı Mesajları -->
+                <div th:if="${success}" class="alert alert-success" th:text="${success}">Başarılı!</div>
+                <div th:if="${error}" class="alert alert-danger" th:text="${error}">Hata!</div>
+                
+                <!-- Anket Detayları -->
+                <div th:if="${survey != null}">
+                    <h3 th:text="${survey.title}">Anket Başlığı</h3>
+                    <p class="lead" th:text="${survey.description}">Anket açıklaması</p>
+                    
+                    <div th:if="${!survey.active}" class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Bu anket artık aktif değil.
+                    </div>
+                    
+                    <!-- Anketin Sahibiyse Ek Seçenekler -->
+                    <div th:if="${isOwner}" class="mb-4">
+                        <div class="alert alert-info">
+                            <p><i class="bi bi-info-circle"></i> Bu anketin sahibisiniz.</p>
+                            <a th:href="@{/surveys/{id}/results(id=${survey.id})}" class="btn btn-info">
+                                <i class="bi bi-bar-chart-fill"></i> Sonuçları Görüntüle
+                            </a>
+                            <form th:if="${survey.active}" th:action="@{/surveys/{id}/end(id=${survey.id})}" method="post" class="d-inline">
+                                <button type="submit" class="btn btn-warning" onclick="return confirm('Anketi sonlandırmak istediğinize emin misiniz?')">
+                                    <i class="bi bi-x-circle-fill"></i> Anketi Sonlandır
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <!-- Oy Verme Formu -->
+                    <form th:if="${survey.active && !isOwner && survey.questions != null && !survey.questions.isEmpty()}" 
+                          th:action="@{/surveys/{id}/vote(id=${survey.id})}" method="post">
+                          
+                        <div class="mb-4" th:each="question : ${survey.questions}">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 th:text="${question.text}">Soru</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div th:each="option : ${question.options}" class="form-check">
+                                        <input class="form-check-input" type="radio" 
+                                               th:name="${'option-' + question.id}" 
+                                               th:id="${'option-' + question.id + '-' + option.id}" 
+                                               th:value="${option.id}" required>
+                                        <label class="form-check-label" 
+                                               th:for="${'option-' + question.id + '-' + option.id}" 
+                                               th:text="${option.text}">Seçenek</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle-fill"></i> Oy Ver
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Soru Yok ise -->
+                    <div th:if="${survey.questions == null || survey.questions.isEmpty()}" class="alert alert-info">
+                        <p>Bu ankette soru bulunmamaktadır.</p>
+                    </div>
+                </div>
+                
+                <!-- Anket Yok ise -->
+                <div th:if="${survey == null}" class="alert alert-danger">
+                    <p>Anket bulunamadı veya model'e eklenmedi.</p>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a th:href="@{/surveys}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Anketlere Dön
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Karanlık Mod Scripti -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            if (darkModeToggle) {
+                const htmlElement = document.documentElement;
+                const iconElement = darkModeToggle.querySelector('i');
+                
+                // Sayfa yüklendiğinde kullanıcı tercihini kontrol et
+                const darkMode = localStorage.getItem('darkMode') === 'true';
+                if (darkMode) {
+                    htmlElement.setAttribute('data-bs-theme', 'dark');
+                    if (iconElement) {
+                        iconElement.classList.remove('bi-moon-fill');
+                        iconElement.classList.add('bi-sun-fill');
+                    }
+                }
+                
+                // Karanlık mod düğmesi tıklama olayı
+                darkModeToggle.addEventListener('click', function() {
+                    const isDarkMode = htmlElement.getAttribute('data-bs-theme') === 'dark';
+                    
+                    if (isDarkMode) {
+                        htmlElement.removeAttribute('data-bs-theme');
+                        if (iconElement) {
+                            iconElement.classList.remove('bi-sun-fill');
+                            iconElement.classList.add('bi-moon-fill');
+                        }
+                        localStorage.setItem('darkMode', 'false');
+                    } else {
+                        htmlElement.setAttribute('data-bs-theme', 'dark');
+                        if (iconElement) {
+                            iconElement.classList.remove('bi-moon-fill');
+                            iconElement.classList.add('bi-sun-fill');
+                        }
+                        localStorage.setItem('darkMode', 'true');
+                    }
+                });
+            }
+        });
+    </script>
 </body>
 </html>

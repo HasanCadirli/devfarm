@@ -1,4 +1,4 @@
-package com.example.surveyapp;
+package com.example.surveyapp.dbtest;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

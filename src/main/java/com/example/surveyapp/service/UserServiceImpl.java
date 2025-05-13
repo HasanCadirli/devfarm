@@ -68,4 +68,16 @@ public class UserServiceImpl implements UserService {
         logger.info("Found {} users", users.size());
         return users;
     }
+    
+    @Transactional
+    @Override
+    public void deleteUser(Long userId) {
+        logger.info("Deleting user with ID: {}", userId);
+        if (!userRepository.existsById(userId)) {
+            logger.warn("User with ID {} not found", userId);
+            throw new RuntimeException("Kullanıcı bulunamadı: ID " + userId);
+        }
+        userRepository.deleteById(userId);
+        logger.info("User with ID {} deleted successfully", userId);
+    }
 }
